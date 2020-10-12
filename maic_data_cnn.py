@@ -1,17 +1,49 @@
+#%%
 import numpy as np
 import pandas as pd
 import os
 import pickle
+from keras.models import Sequential
+from keras.models import Model, load_model
+from keras.layers import Dense, Conv1D, MaxPooling1D, GlobalMaxPool1D, BatchNormalization, Dropout
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+from sklearn.metrics import auc, classification_report, confusion_matrix, accuracy_score, roc_curve, roc_auc_score, f1_score, precision_recall_curve
+import tensorflow as tf
+
 
 MINUTES_AHEAD = 5
 SRATE = 100
 
-# 2초 moving average
+#%%
+# 2초 moving average (초당 100 point) 이동평균 
 def moving_average(a, n=200):
     ret = np.nancumsum(a, dtype=np.float32)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
 
+# test_arr = np.array([range(0,10)])
+test_arr = [100,105,120,110,98,88,74,81]
+ret = np.nancumsum(test_arr, dtype=np.float32)
+val = 3
+print('arr:',test_arr)
+print('ret:',ret)
+print('ret[5:] :',ret[val:])
+print('ret[:-5]:',ret[:-val])
+print('ret[val:]-ret[:-val] :',ret[val:]-ret[:-val])
+ret[val:] = ret[val:] - ret[:-val]
+print('final:',ret)
+print()
+# print('new:',ret)
+print('return',ret[val - 1:] / val)
+
+# moving_average -> 
+
+# np.nancumsum -> cumulative Sum 
+# (배열을 앞에서부터 순서대로 더한 배열을 return)
+# 대신 NaN이 나올경우 0으로 간주 함
+
+
+#%%
 # training set 로딩
 x_train = []  # arterial waveform
 y_train = []  # hypotension
@@ -22,6 +54,8 @@ if os.path.exists('x_train.npz'):
     print('done', flush=True)
 else:
     df_train = pd.read_csv('train_cases.csv')
+
+  # for row_index, row_value in df.iterrows(): 
     for _, row in df_train.iterrows():
         caseid = row['caseid']
         age = row['age']
@@ -30,6 +64,11 @@ else:
         height = row['height']
 
         vals = pd.read_csv('train_data/{}.csv'.format(caseid), header=None).values.flatten()
+
+        # vals --> 
+        # ['time' 'SNUADC/ART' '0' ... nan nan nan]
+        # ['time' 'SNUADC/ART' 'SNUADC/ECG_II' ... nan nan nan]
+
 
         # 20sec (20 00) - 5min (300 00) - 1min (60 00) = 38000 sample
         i = 0
@@ -76,6 +115,8 @@ else:
     np.savez_compressed('y_train.npz', y_train)
     print('done', flush=True)
 
+#%%
+
 # test set 로딩
 if os.path.exists('x_test.npz'):
     print('loading test...', flush=True, end='')
@@ -106,12 +147,7 @@ x_test = x_test[..., None]
 
 print('train {} ({} events {:.1f}%), test {}'.format(len(y_train), sum(y_train), 100*np.mean(y_train), len(x_test)))
 
-from keras.models import Sequential
-from keras.models import Model, load_model
-from keras.layers import Dense, Conv1D, MaxPooling1D, GlobalMaxPool1D, BatchNormalization, Dropout
-from keras.callbacks import ModelCheckpoint, EarlyStopping
-from sklearn.metrics import auc, classification_report, confusion_matrix, accuracy_score, roc_curve, roc_auc_score, f1_score, precision_recall_curve
-import tensorflow as tf
+
 
 num_nodes = [64, 64, 64, 64, 64, 64]
 
